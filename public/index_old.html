@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>匿名聊天室</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .chat-container { background: white; width: 420px; height: 90vh; max-height: 600px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        .header { background: #007bff; color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: bold; }
+        .header .status { font-size: 13px; font-weight: normal; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; }
+        .nickname-bar { padding: 10px; background: #f8f9fa; border-bottom: 1px solid #eee; display: flex; gap: 10px; }
+        .nickname-bar input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
+        .chat-box { flex: 1; padding: 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+        .msg.self { align-self: flex-end; background: #007bff; color: white; border-bottom-right-radius: 2px; }
+        .msg.other { align-self: flex-start; background: #e9ecef; color: #333; border-bottom-left-radius: 2px; }
+        .msg .nickname { font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 3px; }
+        .msg.self .nickname { color: #cce5ff; }
+        .msg .time { font-size: 10px; opacity: 0.7; margin-top: 5px; display: block; text-align: right; }
+        .input-area { padding: 12px; border-top: 1px solid #eee; display: flex; gap: 10px; }
+        .input-area input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
+        .input-area button { background: #007bff; color: white; border: none; padding: 0 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .input-area button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">
+            🎭 匿名聊天室
+            <span class="status" id="onlineCount">在线: 1 人</span>
+        </div>
+        <div class="nickname-bar">
+            <input type="text" id="nicknameInput" placeholder="给自己起个昵称..." value="匿名用户" maxlength="10">
+        </div>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="输入消息，按回车发送..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <!-- 这里加了 type="button" 防止表单提交 -->
+            <button type="button" onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const nicknameInput = document.getElementById('nicknameInput');
+        const messageInput = document.getElementById('messageInput');
+        const onlineCountEl = document.getElementById('onlineCount');
+
+        const myUserId = "user_" + Math.random().toString(36).substr(2, 9);
+
+        // 心跳
+        setInterval(() => {
+            fetch('/api/heartbeat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: myUserId })
+            }).catch(() => {});
+        }, 3000);
+
+        async function fetchMessages() {
+            try {
+                const res = await fetch('/api/messages');
+                const data = await res.json();
+                chatBox.innerHTML = '';
+                data.forEach(msg => {
+                    const div = document.createElement('div');
+                    const isSelf = msg.nickname === nicknameInput.value.trim();
+                    div.className = `msg ${isSelf ? 'self' : 'other'}`;
+                    div.innerHTML = `<span class="nickname">${msg.nickname}</span>${msg.text}<span class="time">${msg.time}</span>`;
+                    chatBox.appendChild(div);
+                });
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (e) {}
+        }
+
+        async function fetchOnlineCount() {
+            try {
+                const res = await fetch('/api/online');
+                const data = await res.json();
+                onlineCountEl.innerText = `在线: ${data.count} 人`;
+            } catch (e) {}
+        }
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            const nickname = nicknameInput.value.trim() || '匿名用户';
+            if (!text) return;
+
+            try {
+                await fetch('/api/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    bo
